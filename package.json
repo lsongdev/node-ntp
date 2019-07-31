@@ -1,8 +1,9 @@
 {
-  "name": "sntp2",
-  "version": "0.0.0",
+  "name": "ntp2",
+  "version": "0.0.2",
   "description": "simple network time protocol implementation for node.js",
   "main": "index.js",
+  "types": "./types/index.d.ts",
   "repository": {
     "url": "git+ssh://git@github.com/song940/node-ntp.git",
     "type": "git"
