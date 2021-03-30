@@ -4,6 +4,13 @@ const util = require('util');
 const Packet = require('./packet');
 const EventEmitter = require('events');
 
+const sleep = ms =>
+  new Promise(done => setTimeout(done, ms));
+
+class NTPTimeoutError extends Error {
+  name = 'NTP Timeout Error'
+}
+
 /**
  * [NTPClient description]
  * @docs https://tools.ietf.org/html/rfc2030
@@ -16,11 +23,12 @@ function NTP(options, callback) {
     callback = options;
     options = {};
   }
-  Object.assign(this, {
+  const { socketType } = Object.assign(this, {
     server: 'pool.ntp.org',
-    port: 123
+    port: 123,
+    socketType: 'udp4',
   }, options);
-  this.socket = udp.createSocket('udp4');
+  this.socket = udp.createSocket(socketType);
   if (typeof callback === 'function')
     this.time(callback);
   return this;
@@ -43,17 +51,31 @@ NTP.time = function (options, callback) {
  * @return {[type]}            [description]
  */
 NTP.prototype.time = function (callback) {
-  const { server, port, timeout } = this;
+  const { server, port, timeout = 400 } = this;
   const packet = NTP.createPacket();
-  this.socket.send(packet, 0, packet.length, port, server, err => {
-    if (err) return callback(err);
-    this.socket.once('message', data => {
-      this.socket.close();
-      const message = NTP.parse(data);
-      callback(err, message);
+  const t = sleep(timeout).then(() => {
+    throw new NTPTimeoutError();
+  });
+  const p = new Promise((resolve, reject) => {
+    this.socket.send(packet, 0, packet.length, port, server, err => {
+      if (err) return reject(err);
+      this.socket.once('message', data => {
+        const message = NTP.parse(data);
+        resolve(message);
+      });
     });
   });
-  return this;
+  return Promise
+    .race([p, t])
+    .then(res => {
+      this.socket.close();
+      callback && callback(null, res);
+      return res;
+    }, err => {
+      this.socket.close();
+      callback && callback(err);
+      throw err;
+    });
 };
 
 /**

@@ -1,6 +1,6 @@
 {
   "name": "ntp2",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "simple network time protocol implementation for node.js",
   "main": "index.js",
   "types": "./types/index.d.ts",

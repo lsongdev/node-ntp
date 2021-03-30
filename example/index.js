@@ -1,6 +1,13 @@
 const ntp = require('..');
 
-ntp(function(err, response){
-  if(err) return console.error(err);
-  console.log('The network time is :', response.time);
-});
+// ntp(function(err, response){
+//   if(err) return console.error(err);
+//   console.log('The network time is :', response.time);
+// });
+
+
+(async () => {
+  const n = ntp();
+  const time = await n.time();
+  console.log(time.time);
+})();
