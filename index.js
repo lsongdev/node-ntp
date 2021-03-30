@@ -20,7 +20,7 @@ function NTP(options, callback) {
     server: 'pool.ntp.org',
     port: 123
   }, options);
-  this.socket = new udp.createSocket('udp4');
+  this.socket = udp.createSocket('udp4');
   if (typeof callback === 'function')
     this.time(callback);
   return this;
