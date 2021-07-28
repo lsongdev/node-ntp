@@ -33,12 +33,16 @@ class NTPServer extends EventEmitter {
       message.mode = Packet.MODES.SERVER; // mark mode as server
       message = message.toBuffer();
     }
-    this.socket.send(message, rinfo.port, rinfo.server, callback);
+    this.socket.send(message, rinfo.port, rinfo.address, callback);
     return this;
   }
   parse(message, rinfo) {
     const packet = Packet.parse(message);
-    packet.receiveTimestamp = Date.now();
+    packet.stratum = 1;
+    packet.transmitTimestamp.copy(packet.originateTimestamp);
+    packet.writeMsecs(packet.receiveTimestamp, Date.now());
+    packet.receiveTimestamp.copy(packet.referenceTimestamp);
+    packet.writeMsecs(packet.transmitTimestamp, Date.now());
     this.emit('request', packet, this.send.bind(this, rinfo));
     return this;
   }

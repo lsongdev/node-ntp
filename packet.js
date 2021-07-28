@@ -55,11 +55,11 @@ class Packet {
       stratum: 0,
       pollInterval: 6,
       precision: 236,
-      referenceIdentifier: 0,
-      referenceTimestamp: 0,
-      originateTimestamp: 0,
-      receiveTimestamp: 0,
-      transmitTimestamp: 0,
+      referenceIdentifier: Buffer.from([0, 0, 0, 0]),
+      referenceTimestamp: Buffer.from([0, 0, 0, 0, 0, 0, 0, 0]),
+      originateTimestamp: Buffer.from([0, 0, 0, 0, 0, 0, 0, 0]),
+      receiveTimestamp: Buffer.from([0, 0, 0, 0, 0, 0, 0, 0]),
+      transmitTimestamp: Buffer.from([0, 0, 0, 0, 0, 0, 0, 0]),
     });
   }
   static parse(buffer) {
@@ -74,10 +74,10 @@ class Packet {
     packet.rootDelay           = buffer.slice(4, 8);
     packet.rootDispersion      = buffer.slice(8, 12);
     packet.referenceIdentifier = buffer.slice(12, 16);
-    packet.referenceTimestamp  = toMsecs(buffer, 16);
-    packet.originateTimestamp  = toMsecs(buffer, 24);
-    packet.receiveTimestamp    = toMsecs(buffer, 32);
-    packet.transmitTimestamp   = toMsecs(buffer, 40);
+    packet.referenceTimestamp  = buffer.slice(16, 24);
+    packet.originateTimestamp  = buffer.slice(24, 32);
+    packet.receiveTimestamp    = buffer.slice(32, 40);
+    packet.transmitTimestamp   = buffer.slice(40, 48)
     return packet;
   }
   toBuffer() {
@@ -92,10 +92,10 @@ class Packet {
     buffer.writeUInt32BE(this.rootDelay, 4);
     buffer.writeUInt32BE(this.rootDispersion, 8);
     buffer.writeUInt32BE(this.referenceIdentifier, 12);
-    writeMsecs(buffer, 16, this.referenceTimestamp);
-    writeMsecs(buffer, 24, this.originateTimestamp);
-    writeMsecs(buffer, 32, this.receiveTimestamp);
-    writeMsecs(buffer, 40, this.transmitTimestamp);
+    this.referenceTimestamp.copy(buffer, 16, 0, 8);
+    this.originateTimestamp.copy(buffer, 24, 0, 8);
+    this.receiveTimestamp.copy(buffer, 32, 0, 8);
+    this.transmitTimestamp.copy(buffer, 40, 0, 8);
     return buffer;
   }
   toJSON() {
@@ -129,14 +129,13 @@ class Packet {
     } else {
       output.stratum = 'reserved';
     }
-    output.referenceTimestamp = new Date(this.referenceTimestamp);
-    output.originateTimestamp = new Date(this.originateTimestamp);
-    output.receiveTimestamp = new Date(this.receiveTimestamp);
-    output.transmitTimestamp = new Date(this.transmitTimestamp);
-    output.destinationTimestamp = new Date(this.destinationTimestamp);
+    output.referenceTimestamp = new Date(toMsecs(this.referenceTimestamp));
+    output.originateTimestamp = new Date(toMsecs(this.originateTimestamp));
+    output.receiveTimestamp = new Date(toMsecs(this.receiveTimestamp));
+    output.transmitTimestamp = new Date(toMsecs(this.transmitTimestamp));
     return output;
   }
-}
+
 // 1                   2                   3
 // 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -145,33 +144,33 @@ class Packet {
 // |                  Seconds Fraction (0-padded)                  |
 // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
-function toMsecs(buffer, offset) {
-  let seconds = 0;
-  let fraction = 0;
-  for (let i = 0; i < 4; ++i) {
-    seconds = (seconds * 256) + buffer[offset + i];
+  toMsecs(buffer) {
+    let seconds = 0;
+    let fraction = 0;
+    for (let i = 0; i < 4; ++i) {
+      seconds = (seconds * 256) + buffer[i];
+    }
+    for (let i = 4; i < 8; ++i) {
+      fraction = (fraction * 256) + buffer[i];
+    }
+    return ((seconds - SEVENTY_YEARS + (fraction / Math.pow(2, 32))) * 1000);
   }
-  for (let i = 4; i < 8; ++i) {
-    fraction = (fraction * 256) + buffer[offset + i];
+  writeMsecs(buffer, ts){
+    // const buffer = Buffer.alloc(8); // 64bits
+    const seconds = Math.floor(ts / 1000) + SEVENTY_YEARS;
+    const fraction = Math.round((ts % 1000) / 1000 * Math.pow(2, 32));
+    // seconds
+    buffer[0] = (seconds & 0xFF000000) >> 24;
+    buffer[1] = (seconds & 0x00FF0000) >> 16;
+    buffer[2] = (seconds & 0x0000FF00) >> 8;
+    buffer[3] = (seconds & 0x000000FF);
+    // fraction
+    buffer[4] = (fraction & 0xFF000000) >> 24;
+    buffer[5] = (fraction & 0x00FF0000) >> 16;
+    buffer[6] = (fraction & 0x0000FF00) >> 8;
+    buffer[7] = (fraction & 0x000000FF);
+    return buffer;
   }
-  return ((seconds - SEVENTY_YEARS + (fraction / Math.pow(2, 32))) * 1000);
-};
-
-function writeMsecs(buffer, offset, ts){
-  // const buffer = Buffer.alloc(8); // 64bits
-  const seconds = Math.floor(ts / 1000) + SEVENTY_YEARS;
-  const fraction = Math.round((ts % 1000) / 1000 * Math.pow(2, 32));
-  // seconds
-  buffer[offset + 0] = (seconds & 0xFF000000) >> 24;
-  buffer[offset + 1] = (seconds & 0x00FF0000) >> 16;
-  buffer[offset + 2] = (seconds & 0x0000FF00) >> 8;
-  buffer[offset + 3] = (seconds & 0x000000FF);
-  // fraction
-  buffer[offset + 4] = (fraction & 0xFF000000) >> 24;
-  buffer[offset + 5] = (fraction & 0x00FF0000) >> 16;
-  buffer[offset + 6] = (fraction & 0x0000FF00) >> 8;
-  buffer[offset + 7] = (fraction & 0x000000FF);
-  return buffer;
 }
 
 // Mode     Meaning
