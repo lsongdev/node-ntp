@@ -17,7 +17,7 @@ $ npm i ntp2
 const ntp = require('ntp2');
 
 ntp.time(function(err, response){
-  console.log('The network time is :', response.time);
+  console.log('The network time is :', new Date(response.toMsecs(response.transmitTimestamp)));
 });
 ```
 
@@ -27,8 +27,7 @@ sntp server
 const ntp = require('ntp2');
 
 const server = ntp.createServer(function(message, response){
-  console.log('server message:', message);
-  message.transmitTimestamp = Date.now();
+  console.log('response message:', message);
   response(message);
 }).listen(123, function(err){
   console.log('server is running at %s', server.address().port);
