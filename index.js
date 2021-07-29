@@ -85,7 +85,7 @@ NTP.prototype.time = function (callback) {
 NTP.createPacket = function () {
   const packet = new Packet();
   packet.mode = Packet.MODES.CLIENT;
-  packet.originateTimestamp = Date.now();
+  packet.writeMsecs(packet.originateTimestamp, Date.now());
   return packet.toBuffer();
 };
 
@@ -103,18 +103,16 @@ NTP.parse = function (buffer) {
   // date.setUTCSeconds(epoch);
   // return date;
   const message = Packet.parse(buffer);
-  message.destinationTimestamp = Date.now();
-  message.time = new Date(message.transmitTimestamp);
   // Timestamp Name          ID   When Generated
   // ------------------------------------------------------------
   // Originate Timestamp     T1   time request sent by client
   // Receive Timestamp       T2   time request received by server
   // Transmit Timestamp      T3   time reply sent by server
   // Destination Timestamp   T4   time reply received by client
-  const T1 = message.originateTimestamp;
-  const T2 = message.receiveTimestamp;
-  const T3 = message.transmitTimestamp;
-  const T4 = message.destinationTimestamp;
+  const T1 = message.toMsecs(message.originateTimestamp);
+  const T2 = message.toMsecs(message.receiveTimestamp);
+  const T3 = message.toMsecs(message.transmitTimestamp);
+  const T4 = message.toMsecs(Date.now());
   // The roundtrip delay d and system clock offset t are defined as:
   // -
   // d = (T4 - T1) - (T3 - T2)     t = ((T2 - T1) + (T3 - T4)) / 2

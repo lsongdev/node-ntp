@@ -8,6 +8,6 @@ const ntp = require('..');
 
 (async () => {
   const n = ntp();
-  const time = await n.time();
-  console.log(time.time);
+  const message = await n.time();
+  console.log(new Date(message.toMsecs(message.transmitTimestamp)));
 })();
